@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Naxx Group Planner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Exo+2:wght@400;600;700&display=swap');
+:root{
+  --bg:#0a0c0f;--bg2:#111418;--bg3:#181c22;
+  --border:#2a2f3a;--border2:#3a4050;
+  --gold:#c8a84b;--gold2:#e8c870;
+  --text:#d0d4dc;--text2:#888ea0;
+  --green:#00e87a;--red:#ff4455;--blue:#4a9eff;
+  --warrior:#C69B6D;--paladin:#F48CBA;--hunter:#AAD372;
+  --rogue:#FFF468;--priest:#CCCCCC;--shaman:#0070DE;
+  --mage:#3FC7EB;--warlock:#8788EE;--druid:#FF7C0A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(200,168,75,.06) 0%,transparent 60%);pointer-events:none;z-index:0}
+.app{position:relative;z-index:1}
+
+/* ── Header ── */
+header{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:rgba(10,12,15,.97);position:sticky;top:0;z-index:300;backdrop-filter:blur(8px)}
+header h1{font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:var(--gold);letter-spacing:2px;white-space:nowrap}
+.sep{width:1px;height:20px;background:var(--border2);flex-shrink:0}
+.nav-btn{padding:4px 12px;border-radius:4px;border:1px solid var(--border);cursor:pointer;font-size:11px;font-weight:600;color:var(--text2);background:transparent;font-family:'Exo 2',sans-serif;transition:all .15s}
+.nav-btn:hover{border-color:var(--border2);color:var(--text)}
+.nav-btn.active{background:rgba(200,168,75,.12);border-color:var(--gold);color:var(--gold)}
+.boss-tabs{display:flex;gap:3px;flex:1}
+.boss-tab{padding:4px 10px;border-radius:4px;border:1px solid var(--border);cursor:pointer;font-size:10px;font-weight:600;color:var(--text2);background:transparent;font-family:'Exo 2',sans-serif;transition:all .15s;white-space:nowrap}
+.boss-tab:hover{border-color:var(--border2);color:var(--text)}
+.boss-tab.active{background:rgba(200,168,75,.12);border-color:var(--gold);color:var(--gold)}
+.hdr-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:4px;border:none;cursor:pointer;font-size:10px;font-weight:700;font-family:'Exo 2',sans-serif;transition:all .15s;white-space:nowrap}
+.btn-gold{background:var(--gold);color:#0a0c0f}.btn-gold:hover{background:var(--gold2)}
+.btn-blue{background:rgba(74,158,255,.15);color:var(--blue);border:1px solid rgba(74,158,255,.3)}.btn-blue:hover{background:rgba(74,158,255,.25)}
+.btn-green{background:rgba(0,232,122,.12);color:var(--green);border:1px solid rgba(0,232,122,.3)}.btn-green:hover{background:rgba(0,232,122,.2)}
+.btn-sm{background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:3px 8px;font-size:9px}.btn-sm:hover{border-color:var(--border2);color:var(--text)}
+.btn-red{background:rgba(255,68,85,.1);color:var(--red);border:1px solid rgba(255,68,85,.3);padding:3px 8px;font-size:9px}.btn-red:hover{background:rgba(255,68,85,.2)}
+.btn-copy{background:var(--bg3);color:var(--green);border:1px solid rgba(0,232,122,.3);padding:3px 8px;font-size:9px}.btn-copy:hover{background:rgba(0,232,122,.08)}.btn-copy.copied{background:rgba(0,232,122,.15)}
+#status{font-size:10px;padding:3px 8px;border-radius:3px;display:none;white-space:nowrap}
+#status.ok{color:var(--green);background:rgba(0,232,122,.08);border:1px solid rgba(0,232,122,.2);display:block}
+#status.err{color:var(--red);background:rgba(255,68,85,.08);border:1px solid rgba(255,68,85,.2);display:block}
+
+/* ── Pages ── */
+.page{display:none}.page.active{display:flex;flex-direction:column}
+
+/* ── PLANNER PAGE ── */
+#page-planner{height:calc(100vh - 47px);display:none;grid-template-columns:220px 1fr 260px}
+#page-planner.active{display:grid}
+
+/* Left pool panel */
+.pool-panel{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.import-area{padding:7px;border-bottom:1px solid var(--border);flex-shrink:0}
+.import-area textarea{width:100%;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 7px;font-size:10px;font-family:monospace;resize:none;height:48px;transition:border-color .15s}
+.import-area textarea:focus{outline:none;border-color:var(--gold)}
+.import-btns{display:flex;gap:4px;margin-top:4px}
+.import-btns .btn{flex:1;justify-content:center}
+.pool-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.pool-tab{flex:1;padding:6px 2px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);background:transparent;border:none;cursor:pointer;font-family:'Exo 2',sans-serif;border-bottom:2px solid transparent;transition:all .15s}
+.pool-tab:hover{color:var(--text)}.pool-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.pool-scroll{flex:1;overflow-y:auto;padding:4px;display:flex;flex-direction:column;gap:2px}
+.corr-wrap{flex:1;overflow-y:auto;display:none;flex-direction:column}
+.corr-hint{font-size:9px;color:var(--text2);padding:6px 8px;line-height:1.5;border-bottom:1px solid var(--border);flex-shrink:0}
+.corr-rows{padding:4px;display:flex;flex-direction:column;gap:2px}
+.corr-row{display:grid;grid-template-columns:1fr 1fr;gap:3px;align-items:center}
+.corr-label{font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.corr-row input{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 5px;font-size:10px;width:100%;font-family:'Exo 2',sans-serif}
+.corr-row input:focus{outline:none;border-color:var(--gold)}
+.corr-row input.fixed{border-color:rgba(200,168,75,.5);color:var(--gold)}
+
+/* Player chip */
+.chip{display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:4px;border:1px solid rgba(255,255,255,.05);cursor:grab;user-select:none;transition:all .12s;background:rgba(255,255,255,.02);font-size:11px;font-weight:600}
+.chip:hover{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.05);transform:translateX(2px)}
+.chip.dragging{opacity:.35;transform:scale(.95)}.chip.used{opacity:.28}
+.spec-icon{width:16px;height:16px;border-radius:2px;flex-shrink:0;object-fit:cover}
+.spec-fb{width:16px;height:16px;border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700}
+.chip-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip-sub{font-size:8px;font-weight:400;color:var(--text2);white-space:nowrap}
+
+/* Groups center */
+.groups-panel{overflow-y:auto;display:flex;flex-direction:column}
+.stats-bar{padding:5px 8px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-shrink:0}
+.stat{padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.stat.ok{color:var(--green);border-color:rgba(0,232,122,.3)}.stat.warn{color:var(--red);border-color:rgba(255,68,85,.3)}
+.groups-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px}
+.gcard{background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden;transition:border-color .15s}
+.gcard.drag-over{border-color:var(--gold);background:rgba(200,168,75,.04)}
+.gtitle{background:var(--bg3);border-bottom:1px solid var(--border);padding:4px 7px;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:.7px;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;border-radius:6px 6px 0 0}
+.gcount{font-size:9px;color:var(--text2);font-weight:400}
+.gactions{display:flex;gap:3px;opacity:0;transition:opacity .15s}
+.gcard:hover .gactions{opacity:1}
+.gslots{padding:2px;min-height:110px;display:flex;flex-direction:column;gap:2px}
+.slot-e{height:24px;border:1px dashed var(--border);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--border2);transition:all .15s}
+.slot-e.drag-over{border-color:var(--gold);background:rgba(200,168,75,.07);color:var(--gold)}
+.slot-f{display:flex;align-items:center;gap:4px;padding:2px 5px;border-radius:3px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.02);font-size:11px;font-weight:600;cursor:grab;user-select:none;min-height:24px;transition:background .12s}
+.slot-f:hover{background:rgba(255,255,255,.06)}.slot-f:hover .rem{opacity:1}.slot-f.dragging{opacity:.35}
+.rem{margin-left:auto;opacity:0;width:12px;height:12px;border-radius:50%;background:rgba(255,68,85,.2);color:var(--red);border:none;cursor:pointer;font-size:8px;display:flex;align-items:center;justify-content:center;transition:opacity .15s;flex-shrink:0}
+.rem:hover{background:rgba(255,68,85,.4)}
+
+/* Copy dropdown */
+.copy-dd{position:fixed;z-index:400;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:4px;min-width:160px;display:none;flex-direction:column;gap:2px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.copy-dd.open{display:flex}
+.copy-dd-lbl{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);padding:4px 8px 2px;font-weight:700}
+.copy-dd-item{padding:5px 10px;font-size:10px;font-weight:600;color:var(--text2);border-radius:3px;cursor:pointer;font-family:'Exo 2',sans-serif}
+.copy-dd-item:hover{background:rgba(200,168,75,.1);color:var(--gold)}
+
+/* Right WA panel */
+.wa-panel{border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.wa-hint{font-size:9px;color:var(--text2);padding:5px 9px;line-height:1.5;border-bottom:1px solid var(--border);flex-shrink:0}
+.wa-scroll{flex:1;overflow-y:auto}
+.wa-sec{padding:7px 9px;border-bottom:1px solid var(--border)}
+.wa-lbl{font-size:10px;font-weight:700;color:var(--gold);letter-spacing:.5px;text-transform:uppercase;margin-bottom:3px;display:flex;align-items:center;justify-content:space-between}
+.wa-str{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-family:monospace;font-size:9px;color:var(--green);word-break:break-all;line-height:1.5;min-height:24px;max-height:48px;overflow-y:auto}
+.wa-str.cur{border-color:rgba(0,232,122,.3);background:rgba(0,232,122,.03)}
+
+/* Scrollbars */
+.pool-scroll::-webkit-scrollbar,.corr-wrap::-webkit-scrollbar,.groups-panel::-webkit-scrollbar,.wa-scroll::-webkit-scrollbar,.tpl-scroll::-webkit-scrollbar{width:3px}
+.pool-scroll::-webkit-scrollbar-thumb,.corr-wrap::-webkit-scrollbar-thumb,.groups-panel::-webkit-scrollbar-thumb,.wa-scroll::-webkit-scrollbar-thumb,.tpl-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* Empty state */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text2);text-align:center;padding:20px}
+.empty .ico{font-size:28px;opacity:.2}.empty p{font-size:11px;line-height:1.6;max-width:150px}
+
+/* ── TEMPLATE PAGE ── */
+#page-template{height:calc(100vh - 47px);overflow-y:auto;display:none}
+#page-template.active{display:block}
+.tpl-inner{max-width:960px;margin:0 auto;padding:20px 24px}
+.tpl-title{font-family:'Cinzel',serif;font-size:18px;color:var(--gold);letter-spacing:1.5px;margin-bottom:6px}
+.tpl-subtitle{font-size:11px;color:var(--text2);margin-bottom:20px;line-height:1.6}
+.tpl-layout{display:grid;grid-template-columns:1fr 220px;gap:20px}
+
+/* Class roster section */
+.tpl-roster-section{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px}
+.tpl-section-title{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--gold);text-transform:uppercase;margin-bottom:12px}
+.tpl-class-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tpl-class-block{background:var(--bg3);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.tpl-class-header{padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between}
+.tpl-class-slots{padding:6px;display:flex;flex-direction:column;gap:3px;min-height:30px}
+.tpl-player-chip{display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:4px;border:1px solid rgba(255,255,255,.06);cursor:grab;user-select:none;background:rgba(255,255,255,.03);font-size:11px;font-weight:600;transition:all .12s}
+.tpl-player-chip:hover{background:rgba(255,255,255,.07);transform:translateX(2px)}
+.tpl-player-chip.dragging{opacity:.35}
+.tpl-drop-zone{min-height:28px;border:1px dashed var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--border2);transition:all .15s;padding:3px}
+.tpl-drop-zone.drag-over{border-color:var(--gold);background:rgba(200,168,75,.07);color:var(--gold)}
+.tpl-add-row{display:flex;gap:4px;padding:4px 6px}
+.tpl-add-input{flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:3px 6px;font-size:10px;font-family:'Exo 2',sans-serif}
+.tpl-add-input:focus{outline:none;border-color:var(--gold)}
+
+/* Group template right panel */
+.tpl-group-panel{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.tpl-group-row{display:grid;grid-template-columns:40px repeat(5,1fr);gap:4px;align-items:center}
+.tpl-group-lbl{font-size:10px;font-weight:700;color:var(--gold)}
+.tpl-slot-drop{height:28px;border-radius:4px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.tpl-slot-drop:hover{border-color:var(--border2)}
+.tpl-slot-drop.filled{border-style:solid;border-width:1px}
+.tpl-slot-drop.drag-over{border-color:var(--gold)!important;border-style:solid!important}
+.tpl-slot-text{font-size:8px;font-weight:700;text-align:center;line-height:1.1;padding:1px 2px;pointer-events:none}
+
+.tpl-actions{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap}
+.tpl-confirm{background:var(--green);color:#0a0c0f;padding:8px 20px;font-size:12px;font-weight:700;border-radius:5px;border:none;cursor:pointer;font-family:'Exo 2',sans-serif;transition:filter .15s}
+.tpl-confirm:hover{filter:brightness(1.1)}
+.tpl-info{font-size:10px;color:var(--text2);line-height:1.6;margin-top:8px;padding:8px;background:var(--bg3);border-radius:4px;border:1px solid var(--border)}
+
+/* Role colors for template slots */
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <h1>⚔ NAXX PLANNER</h1>
+  <div class="sep"></div>
+  <button class="nav-btn active" id="nav-pl" onclick="showPage('planner')">Planner</button>
+  <button class="nav-btn" id="nav-tpl" onclick="showPage('template')">Template</button>
+  <div class="sep"></div>
+  <div class="boss-tabs" id="boss-tabs"></div>
+  <div class="hdr-actions">
+    <label class="btn btn-blue" style="cursor:pointer">
+      ⬆ Upload XLS
+      <input type="file" id="xls-file" accept=".xlsx" style="display:none" onchange="handleUpload(this)">
+    </label>
+    <button class="btn btn-blue" onclick="injectExcel()">💉 Inject</button>
+    <button class="btn btn-green" onclick="exportExcel()">⬇ Export</button>
+    <div id="status"></div>
+  </div>
+</header>
+
+<!-- ── PLANNER PAGE ── -->
+<div id="page-planner" class="active">
+  <div class="pool-panel">
+    <div class="import-area">
+      <textarea id="json-in" placeholder="Paste comp tool JSON here..."></textarea>
+      <div class="import-btns">
+        <button class="btn btn-gold" onclick="importJSON()">⬇ Import</button>
+        <button class="btn btn-blue" onclick="autoFill()">⚡ Auto-Fill</button>
+      </div>
+    </div>
+    <div class="pool-tabs">
+      <button class="pool-tab active" onclick="poolTab('players',this)">Players</button>
+      <button class="pool-tab" onclick="poolTab('corrections',this)">Fix Names</button>
+    </div>
+    <div class="pool-scroll" id="pool-list">
+      <div class="empty"><div class="ico">⚔</div><p>Import your roster to see players</p></div>
+    </div>
+    <div class="corr-wrap" id="corr-wrap">
+      <div class="corr-hint">Left = Discord name · Right = character name. Leave blank if correct.</div>
+      <div class="corr-rows" id="corr-rows"></div>
+    </div>
+  </div>
+
+  <div class="groups-panel" id="groups-panel">
+    <div class="empty" style="height:100%"><div class="ico">🛡</div><p>Import your roster to start building groups</p></div>
+  </div>
+
+  <div class="wa-panel">
+    <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase">WeakAura Strings</div>
+    <div class="wa-hint">/wa → Group Setup → child aura → Author Options → Roster: → paste</div>
+    <div class="wa-scroll" id="wa-out">
+      <div class="empty" style="padding:20px"><p>Fill groups to generate strings</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TEMPLATE PAGE ── -->
+<div id="page-template">
+  <div class="tpl-inner">
+    <div class="tpl-title">⚙ ROSTER TEMPLATE</div>
+    <div class="tpl-subtitle">
+      Build your class roster below — add players by class, then drag them into the group slots on the right.<br>
+      Click <strong style="color:var(--gold)">Confirm Template</strong> when done. Auto-Fill will use this template for all boss tabs.
+    </div>
+
+    <div class="tpl-layout">
+      <!-- Left: class blocks -->
+      <div class="tpl-roster-section">
+        <div class="tpl-section-title">Class Roster</div>
+        <div class="tpl-class-grid" id="tpl-class-grid"></div>
+      </div>
+
+      <!-- Right: group slot template -->
+      <div>
+        <div class="tpl-group-panel">
+          <div class="tpl-section-title" style="margin-bottom:4px">Group Layout</div>
+          <div style="display:grid;grid-template-columns:40px repeat(5,1fr);gap:4px;margin-bottom:4px">
+            <div></div>
+            <div style="font-size:8px;color:var(--text2);text-align:center">S1</div>
+            <div style="font-size:8px;color:var(--text2);text-align:center">S2</div>
+            <div style="font-size:8px;color:var(--text2);text-align:center">S3</div>
+            <div style="font-size:8px;color:var(--text2);text-align:center">S4</div>
+            <div style="font-size:8px;color:var(--text2);text-align:center">S5</div>
+          </div>
+          <div id="tpl-group-grid"></div>
+          <div style="margin-top:8px;display:flex;gap:4px">
+            <button class="btn btn-red" onclick="clearTplGroups()">✕ Clear slots</button>
+            <button class="btn btn-sm" onclick="resetTplToDefault()">↺ Reset to default</button>
+          </div>
+        </div>
+        <div class="tpl-info">
+          Drag a player from the class roster → drop onto a group slot.<br>
+          Click a filled slot to remove it.
+        </div>
+        <div class="tpl-actions">
+          <button class="tpl-confirm" onclick="confirmTemplate()">✓ Confirm Template</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- .app -->
+
+<!-- Copy group dropdown -->
+<div id="copy-dd" class="copy-dd">
+  <div class="copy-dd-lbl">Copy Group <span id="cdd-num"></span> to:</div>
+</div>
+
+<script>
+// ── Constants ─────────────────────────────────────────────────────────────────
+const ICON='https://render.worldofwarcraft.com/classic/icons/24/';
+const SPEC_ICONS={
+  Fury:'ability_warrior_innerrage',Arms:'ability_rogue_eviscerate',Protection:'ability_warrior_defensivestance',
+  Holy1:'spell_holy_holybolt',Retribution:'spell_holy_auraoflight',Protection1:'spell_holy_devotionaura',
+  Beastmastery:'ability_hunter_beasttaming',Marksmanship:'ability_marksmanship',Survival:'ability_hunter_swiftstrike',
+  Combat:'ability_backstab',Assassination:'spell_shadow_shadowwordpain',Subtlety:'ability_stealth',
+  Discipline:'spell_holy_powerwordshield',Holy:'spell_holy_guardianspirit',Shadow:'spell_shadow_shadowwordpain',Smite:'spell_holy_holysmite',
+  Elemental:'spell_nature_lightning',Enhancement:'spell_nature_lightningshield',Restoration1:'spell_nature_magicimmunity',
+  Fire:'spell_fire_firebolt02',Frost:'spell_frost_frostbolt02',Arcane:'spell_holy_magicalsentry',
+  Destruction:'spell_shadow_rainoffire',Affliction:'spell_shadow_unstableaffliction_3',Demonology:'spell_shadow_metamorphosis',
+  Restoration:'spell_nature_healingtouch',Balance:'spell_nature_starfall',Feral:'ability_druid_catform',
+  Guardian:'ability_racial_bearform',Dreamstate:'spell_nature_dreamstate',Tank:'ability_warrior_defensivestance',
+};
+const CLS_COLOR={
+  Warrior:'#C69B6D',Paladin:'#F48CBA',Hunter:'#AAD372',Rogue:'#FFF468',
+  Priest:'#CCCCCC',Shaman:'#0070DE',Mage:'#3FC7EB',Warlock:'#8788EE',
+  Druid:'#FF7C0A',Tank:'#C69B6D',Tentative:'#666',DeathKnight:'#C41F3B'
+};
+// Class order for template page
+const CLASS_ORDER=['Tank','Warrior','Paladin','Priest','Mage','Warlock','Hunter','Rogue','Druid','Shaman'];
+
+const BOSSES=[
+  {id:'default',label:'Default'},
+  {id:'gothik',label:'Gothik'},
+  {id:'4hm',label:'4 Horsemen'},
+  {id:'saph',label:'Sapphiron'},
+  {id:'kt',label:"Kel'Thuzad"},
+  {id:'thad',label:'Thaddius'},
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let players=[];        // from JSON
+let corrections={};    // discord→char name
+let currentBoss='default';
+let dragPlayer=null;   // planner drag
+let tplDragName=null;  // template drag
+let cddGroup=null;
+
+// groups[bossId][1..8] = [name|null x5]
+let groups={};
+BOSSES.forEach(b=>{groups[b.id]={};for(let g=1;g<=8;g++)groups[b.id][g]=[null,null,null,null,null];});
+
+// Template roster: cls -> [name, name, ...]
+let tplRoster={};
+CLASS_ORDER.forEach(c=>tplRoster[c]=[]);
+
+// Template group layout: [8 rows][5 slots] = name|null
+let tplGroups=Array.from({length:8},()=>[null,null,null,null,null]);
+
+// Default template layout (role strings, used by autoFill when no custom template)
+const DEFAULT_TPL_LAYOUT=[
+  ['MainTank','OffTank','FuryTank','Paladin','Warlock'],
+  ['FuryTank','FuryTank','FuryTank','Paladin','Priest'],
+  ['Fury','Fury','Fury','Flex','Priest'],
+  ['Fury','Fury','Fury','Flex','Priest'],
+  ['Fury','Fury','Fury','Flex','Priest'],
+  ['Fury','Fury','Fury','Flex','Priest'],
+  ['Fury','Fury','Fury','Flex','Priest'],
+  ['Warlock','Mage','Mage','Mage','Druid'],
+];
+let customTplLayout=null; // set when user confirms template
+let uploadedWb=null, uploadedFn='Naxx_Updated.xlsx';
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(()=>{
+  const tc=document.getElementById('boss-tabs');
+  BOSSES.forEach(b=>{
+    const d=document.createElement('button');
+    d.className='boss-tab'+(b.id===currentBoss?' active':'');
+    d.textContent=b.label;
+    d.onclick=()=>{
+      currentBoss=b.id;
+      document.querySelectorAll('.boss-tab').forEach(t=>t.classList.remove('active'));
+      d.classList.add('active');
+      renderGroups();renderWA();
+    };
+    tc.appendChild(d);
+  });
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('#copy-dd')&&!e.target.closest('.cdd-btn'))
+      document.getElementById('copy-dd').classList.remove('open');
+  });
+  initTplPage();
+})();
+
+// ── Page nav ──────────────────────────────────────────────────────────────────
+function showPage(p){
+  document.getElementById('page-planner').classList.toggle('active',p==='planner');
+  document.getElementById('page-template').classList.toggle('active',p==='template');
+  document.getElementById('nav-pl').classList.toggle('active',p==='planner');
+  document.getElementById('nav-tpl').classList.toggle('active',p==='template');
+  if(p==='template') renderTplPage();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function resolve(n){if(!n)return'';const c=corrections[n];return c&&c.trim()?c.trim():n;}
+function iurl(spec,cls){const k=SPEC_ICONS[spec]||SPEC_ICONS[cls];return k?ICON+k+'.jpg':null;}
+function ihtml(spec,cls,sz){
+  sz=sz||16;const u=iurl(spec,cls);const col=CLS_COLOR[cls]||'#888';
+  return u?`<img class="spec-icon" style="width:${sz}px;height:${sz}px" src="${u}" alt="" onerror="this.style.display='none'">`
+          :`<div class="spec-fb" style="width:${sz}px;height:${sz}px;background:${col}22;color:${col}">${(cls||'?')[0]}</div>`;
+}
+function showStatus(msg,type){
+  const el=document.getElementById('status');el.textContent=msg;el.className=type;
+  clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',3000);
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function isUsed(name){const g=groups[currentBoss];for(let i=1;i<=8;i++)if(g[i].includes(name))return true;return false;}
+
+// ── Pool tabs ─────────────────────────────────────────────────────────────────
+function poolTab(t,btn){
+  document.querySelectorAll('.pool-tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');
+  document.getElementById('pool-list').style.display=t==='players'?'flex':'none';
+  document.getElementById('corr-wrap').style.display=t==='corrections'?'flex':'none';
+  if(t==='corrections')renderCorr();
+}
+
+// ── Import JSON ───────────────────────────────────────────────────────────────
+function importJSON(){
+  const raw=document.getElementById('json-in').value.trim();
+  let data;try{data=JSON.parse(raw);}catch(e){showStatus('Invalid JSON','err');return;}
+  const seen={};players=[];
+  (data.slots||[]).forEach(s=>{
+    if(s.groupNumber<=8&&s.isConfirmed!=='cancelled'&&!seen[s.name]){
+      seen[s.name]=true;
+      players.push({name:s.name,cls:s.className,spec:s.specName,conf:s.isConfirmed});
+    }
+  });
+  showStatus('✓ '+players.length+' players','ok');
+  renderPool();renderCorr();renderGroups();renderWA();
+}
+
+// ── Auto-Fill ─────────────────────────────────────────────────────────────────
+function autoFill(){
+  if(!players.length){showStatus('Import roster first','err');return;}
+
+  // If user confirmed a custom template with names, use those name→slot mappings
+  if(customTplLayout){
+    // customTplLayout[gi][si] = name|null
+    // Map each name to a slot, then for each boss fill accordingly
+    // Build a role→[names] bucket from the template layout
+    // Actually: tplGroups contains name assignments per slot
+    // Use tplGroups as the definitive order for default boss
+    // For other bosses, use role-based fill
+    const nameOrder=[]; // ordered list of names from template slots
+    for(let gi=0;gi<8;gi++)
+      for(let si=0;si<5;si++)
+        if(tplGroups[gi][si]) nameOrder.push({name:tplGroups[gi][si],gi,si});
+
+    // Fill default using template slot assignments
+    const usedInDefault=new Set();
+    for(let gi=0;gi<8;gi++){
+      groups['default'][gi+1]=[null,null,null,null,null];
+      for(let si=0;si<5;si++){
+        const n=tplGroups[gi][si];
+        if(n&&!usedInDefault.has(n)){
+          groups['default'][gi+1][si]=n;
+          usedInDefault.add(n);
+        }
+      }
+    }
+    // Other bosses: copy default as starting point
+    BOSSES.slice(1).forEach(b=>{
+      for(let g=1;g<=8;g++) groups[b.id][g]=[...groups['default'][g]];
+    });
+    showStatus('⚡ Filled from template','ok');
+  } else {
+    // Role-based auto-fill using default layout
+    roleBasedFill();
+    showStatus('⚡ Auto-filled (role-based)','ok');
+  }
+  renderGroups();renderPool();renderWA();
+}
+
+function classifyRole(p){
+  const s=p.spec||'',c=p.cls||'';
+  if(c==='Tank'||(c==='Warrior'&&s==='Protection'))return'OffTank';
+  if(c==='Warrior'&&s==='Fury')return'Fury';
+  if(c==='Paladin')return'Paladin';if(c==='Priest')return'Priest';
+  if(c==='Mage')return'Mage';if(c==='Warlock')return'Warlock';
+  if(c==='Druid')return'Druid';if(c==='Hunter')return'Hunter';
+  if(c==='Rogue')return'Rogue';return'Any';
+}
+
+function roleBasedFill(){
+  const bkts={MainTank:[],OffTank:[],FuryTank:[],Fury:[],Paladin:[],Priest:[],Mage:[],Warlock:[],Druid:[],Hunter:[],Rogue:[],Flex:[],Any:[]};
+  const tanks=players.filter(p=>p.cls==='Tank');
+  tanks.forEach((p,i)=>{if(i===0)bkts.MainTank.push(p);else bkts.OffTank.push(p);});
+  players.filter(p=>p.cls==='Warrior'&&p.spec==='Protection').forEach(p=>bkts.FuryTank.push(p));
+  players.forEach(p=>{
+    if(p.cls==='Tank'||(p.cls==='Warrior'&&p.spec==='Protection'))return;
+    const r=classifyRole(p);(bkts[r]||bkts.Any).push(p);
+  });
+  bkts.Flex=[...bkts.Hunter,...bkts.Rogue];
+
+  const fallback={
+    MainTank:['MainTank','OffTank','FuryTank','Fury'],
+    OffTank:['OffTank','FuryTank','MainTank','Fury'],
+    FuryTank:['FuryTank','OffTank','Fury'],
+    Fury:['Fury','FuryTank','Flex','Any'],
+    Paladin:['Paladin'],Priest:['Priest'],
+    Mage:['Mage','Warlock'],Warlock:['Warlock','Mage'],
+    Druid:['Druid','Priest'],
+    Flex:['Flex','Hunter','Rogue','Fury','Any'],Any:['Any','Flex','Fury'],
+  };
+
+  BOSSES.forEach(b=>{
+    const used={};
+    const myBkts={};Object.keys(bkts).forEach(k=>myBkts[k]=[...bkts[k]]);
+    for(let gi=1;gi<=8;gi++){
+      groups[b.id][gi]=[null,null,null,null,null];
+      DEFAULT_TPL_LAYOUT[gi-1].forEach((role,si)=>{
+        const tries=fallback[role]||[role,'Any'];
+        for(const r of tries){
+          const avail=(myBkts[r]||[]).filter(x=>!used[x.name]);
+          if(avail.length){used[avail[0].name]=true;groups[b.id][gi][si]=avail[0].name;break;}
+        }
+      });
+    }
+  });
+}
+
+// ── Pool render ───────────────────────────────────────────────────────────────
+function renderPool(){
+  const list=document.getElementById('pool-list');list.innerHTML='';
+  if(!players.length){list.innerHTML='<div class="empty"><p>No players</p></div>';return;}
+  [...players].sort((a,b)=>a.cls.localeCompare(b.cls)||a.name.localeCompare(b.name)).forEach(p=>{
+    const used=isUsed(p.name);
+    const col=CLS_COLOR[p.cls]||'#888';
+    const chip=document.createElement('div');
+    chip.className='chip'+(used?' used':'');chip.draggable=true;chip.dataset.name=p.name;
+    chip.innerHTML=ihtml(p.spec,p.cls,16)+
+      `<span class="chip-name" style="color:${col}">${resolve(p.name)}</span>`+
+      `<span class="chip-sub">${p.spec||p.cls}</span>`;
+    chip.addEventListener('dragstart',e=>{dragPlayer={name:p.name,fromPool:true};chip.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
+    list.appendChild(chip);
+  });
+}
+
+// ── Corrections ───────────────────────────────────────────────────────────────
+function renderCorr(){
+  const rows=document.getElementById('corr-rows');rows.innerHTML='';
+  if(!players.length){rows.innerHTML='<div style="font-size:10px;color:var(--text2);padding:8px">Import roster first</div>';return;}
+  players.forEach(p=>{
+    const v=corrections[p.name]||'';
+    const row=document.createElement('div');row.className='corr-row';
+    row.innerHTML=`<div class="corr-label" title="${esc(p.name)}">${esc(p.name)}</div>
+      <input type="text" placeholder="${esc(p.name)}" value="${esc(v)}" class="${v?'fixed':''}" data-orig="${esc(p.name)}" oninput="upCorr(this)">`;
+    rows.appendChild(row);
+  });
+}
+function upCorr(inp){corrections[inp.dataset.orig]=inp.value;inp.className=inp.value.trim()?'fixed':'';renderPool();renderGroups();renderWA();}
+
+// ── Groups render ─────────────────────────────────────────────────────────────
+function renderGroups(){
+  const panel=document.getElementById('groups-panel');
+  const g=groups[currentBoss];
+  const all=Object.values(g).flat().filter(n=>n);
+  const dupes=all.length-new Set(all).size;
+  let html=`<div class="stats-bar">
+    <div class="stat ${all.length>0?'ok':'warn'}">${all.length}/${players.length} assigned</div>
+    <div class="stat ${dupes===0?'ok':'warn'}">${dupes} dupe${dupes!==1?'s':''}</div>
+  </div><div class="groups-grid">`;
+
+  for(let gi=1;gi<=8;gi++){
+    const filled=g[gi].filter(n=>n).length;
+    html+=`<div class="gcard" id="gc-${gi}" ondragover="ogDO(event,${gi})" ondragleave="ogDL(event,${gi})" ondrop="ogDrop(event,${gi})">
+      <div class="gtitle"><span>G${gi}</span>
+        <span style="display:flex;gap:3px;align-items:center">
+          <span class="gcount">${filled}/5</span>
+          <div class="gactions">
+            <button class="btn btn-sm cdd-btn" onclick="openCDD(event,${gi})">⎘</button>
+            <button class="btn btn-red" onclick="clearG(${gi})">✕</button>
+          </div>
+        </span>
+      </div>
+      <div class="gslots" id="gs-${gi}">`;
+
+    for(let si=0;si<5;si++){
+      const name=g[gi][si];
+      if(name){
+        const p=players.find(x=>x.name===name);
+        const col=p?(CLS_COLOR[p.cls]||'#888'):'#888';
+        html+=`<div class="slot-f" draggable="true" data-g="${gi}" data-s="${si}"
+          ondragstart="sDS(event,${gi},${si})" ondragend="sDE(event)">
+          ${p?ihtml(p.spec,p.cls,14):''}
+          <span style="color:${col};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${resolve(name)}</span>
+          <button class="rem" onclick="remSlot(${gi},${si},event)">✕</button>
+        </div>`;
+      } else {
+        html+=`<div class="slot-e" id="se-${gi}-${si}"
+          ondragover="sDO(event,${gi},${si})" ondragleave="sDL(event,${gi},${si})" ondrop="sDrop(event,${gi},${si})">empty</div>`;
+      }
+    }
+    html+='</div></div>';
+  }
+  html+='</div>';
+  panel.innerHTML=html;
+}
+
+// ── Drag/Drop planner ─────────────────────────────────────────────────────────
+function sDS(e,gi,si){const n=groups[currentBoss][gi][si];dragPlayer={name:n,fromGroup:true,fromG:gi,fromS:si};e.currentTarget.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
+function sDE(e){e.currentTarget?.classList.remove('dragging');}
+function sDO(e,gi,si){e.preventDefault();e.stopPropagation();document.getElementById(`se-${gi}-${si}`)?.classList.add('drag-over');}
+function sDL(e,gi,si){document.getElementById(`se-${gi}-${si}`)?.classList.remove('drag-over');}
+function sDrop(e,gi,si){
+  e.preventDefault();e.stopPropagation();
+  document.getElementById(`se-${gi}-${si}`)?.classList.remove('drag-over');
+  if(!dragPlayer)return;
+  const g=groups[currentBoss];
+  if(dragPlayer.fromGroup)g[dragPlayer.fromG][dragPlayer.fromS]=null;
+  g[gi][si]=dragPlayer.name;dragPlayer=null;
+  renderGroups();renderPool();renderWA();
+}
+function ogDO(e,gi){e.preventDefault();document.getElementById(`gc-${gi}`)?.classList.add('drag-over');}
+function ogDL(e,gi){if(!e.currentTarget.contains(e.relatedTarget))document.getElementById(`gc-${gi}`)?.classList.remove('drag-over');}
+function ogDrop(e,gi){
+  document.getElementById(`gc-${gi}`)?.classList.remove('drag-over');
+  if(!dragPlayer)return;
+  const g=groups[currentBoss],first=g[gi].indexOf(null);
+  if(first===-1){showStatus('Group full!','err');dragPlayer=null;return;}
+  if(dragPlayer.fromGroup)g[dragPlayer.fromG][dragPlayer.fromS]=null;
+  g[gi][first]=dragPlayer.name;dragPlayer=null;
+  renderGroups();renderPool();renderWA();
+}
+function remSlot(gi,si,e){e.stopPropagation();groups[currentBoss][gi][si]=null;renderGroups();renderPool();renderWA();}
+function clearG(gi){groups[currentBoss][gi]=[null,null,null,null,null];renderGroups();renderPool();renderWA();}
+
+// ── Copy group dropdown ───────────────────────────────────────────────────────
+function openCDD(e,gi){
+  e.stopPropagation();cddGroup=gi;
+  const dd=document.getElementById('copy-dd');document.getElementById('cdd-num').textContent=gi;
+  dd.querySelectorAll('.copy-dd-item').forEach(x=>x.remove());
+  BOSSES.forEach(b=>{
+    if(b.id===currentBoss)return;
+    const item=document.createElement('div');item.className='copy-dd-item';
+    item.textContent=b.label+' — G'+gi;
+    item.onclick=()=>{groups[b.id][gi]=[...groups[currentBoss][gi]];showStatus('Copied to '+b.label,'ok');dd.classList.remove('open');};
+    dd.appendChild(item);
+  });
+  // also copy to other groups same boss
+  const lbl2=document.createElement('div');lbl2.className='copy-dd-lbl';lbl2.textContent='Same tab:';dd.appendChild(lbl2);
+  for(let tgi=1;tgi<=8;tgi++){
+    if(tgi===gi)continue;
+    const item=document.createElement('div');item.className='copy-dd-item';
+    item.textContent='→ Group '+tgi;
+    item.onclick=()=>{groups[currentBoss][tgi]=[...groups[currentBoss][gi]];showStatus('Copied to G'+tgi,'ok');dd.classList.remove('open');renderGroups();renderPool();renderWA();};
+    dd.appendChild(item);
+  }
+  const rect=e.currentTarget.getBoundingClientRect();
+  dd.style.top=(rect.bottom+4)+'px';dd.style.left=Math.min(rect.left,window.innerWidth-170)+'px';
+  dd.classList.add('open');
+}
+
+// ── WA output ─────────────────────────────────────────────────────────────────
+function buildWA(bid){
+  const g=groups[bid];const ns=[];
+  for(let gi=1;gi<=8;gi++)g[gi].forEach(n=>{if(n)ns.push(resolve(n).split('/')[0]);});
+  return ns.join(' ');
+}
+function renderWA(){
+  const c=document.getElementById('wa-out');let html='';
+  BOSSES.forEach(b=>{
+    const s=buildWA(b.id);
+    const f=Object.values(groups[b.id]).flat().filter(n=>n).length;
+    html+=`<div class="wa-sec">
+      <div class="wa-lbl"><span>${b.label} <span style="color:var(--text2);font-weight:400">(${f}/40)</span></span>
+        <button class="btn btn-copy" onclick="cpWA('${b.id}',this)">Copy</button></div>
+      <div class="wa-str ${b.id===currentBoss?'cur':''}">${s||'<span style="color:#2a2f3a">— empty —</span>'}</div>
+    </div>`;
+  });
+  c.innerHTML=html||'<div class="empty" style="padding:20px"><p>Fill groups to generate strings</p></div>';
+}
+function cpWA(bid,btn){
+  const s=buildWA(bid);if(!s){showStatus('Nothing to copy','err');return;}
+  navigator.clipboard.writeText(s).then(()=>{btn.textContent='Copied!';btn.classList.add('copied');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},1500);});
+}
+
+// ── TEMPLATE PAGE ─────────────────────────────────────────────────────────────
+function initTplPage(){buildTplClassGrid();buildTplGroupGrid();}
+
+function renderTplPage(){buildTplClassGrid();buildTplGroupGrid();}
+
+function buildTplClassGrid(){
+  const grid=document.getElementById('tpl-class-grid');
+  grid.innerHTML='';
+  CLASS_ORDER.forEach(cls=>{
+    const col=CLS_COLOR[cls]||'#888';
+    const block=document.createElement('div');
+    block.className='tpl-class-block';
+    const names=tplRoster[cls]||[];
+
+    block.innerHTML=`
+      <div class="tpl-class-header" style="background:${col}22;border-bottom:1px solid ${col}33">
+        <span style="color:${col};font-size:10px;font-weight:700;letter-spacing:.5px">${cls.toUpperCase()}</span>
+        <span style="font-size:9px;color:var(--text2)">${names.length}</span>
+      </div>
+      <div class="tpl-class-slots" id="tpl-cls-${cls}">
+        ${names.map(n=>`
+          <div class="tpl-player-chip" draggable="true" data-name="${esc(n)}" data-cls="${esc(cls)}"
+            style="border-color:${col}30"
+            ondragstart="tplChipDS(event,'${esc(n)}')"
+            ondragend="this.classList.remove('dragging')">
+            <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></div>
+            <span style="color:${col};font-size:11px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n}</span>
+            <button style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:10px;padding:0 2px" onclick="removeTplPlayer('${esc(cls)}','${esc(n)}')" title="Remove">✕</button>
+          </div>`).join('')}
+        <div class="tpl-drop-zone" id="tpl-dz-${cls}"
+          ondragover="tplDzDO(event,'${cls}')"
+          ondragleave="document.getElementById('tpl-dz-${cls}').classList.remove('drag-over')"
+          ondrop="tplDzDrop(event,'${cls}')">
+          drop here
+        </div>
+      </div>
+      <div class="tpl-add-row">
+        <input class="tpl-add-input" id="tpl-inp-${cls}" placeholder="Add player..." onkeydown="if(event.key==='Enter')addTplPlayer('${cls}')">
+        <button class="btn btn-sm" onclick="addTplPlayer('${cls}')">+</button>
+      </div>`;
+
+    grid.appendChild(block);
+  });
+}
+
+function addTplPlayer(cls){
+  const inp=document.getElementById(`tpl-inp-${cls}`);
+  const name=inp.value.trim();if(!name)return;
+  if(!tplRoster[cls])tplRoster[cls]=[];
+  if(!tplRoster[cls].includes(name))tplRoster[cls].push(name);
+  inp.value='';
+  buildTplClassGrid();
+}
+
+function removeTplPlayer(cls,name){
+  tplRoster[cls]=(tplRoster[cls]||[]).filter(n=>n!==name);
+  // Also remove from group slots if placed
+  for(let gi=0;gi<8;gi++)
+    for(let si=0;si<5;si++)
+      if(tplGroups[gi][si]===name)tplGroups[gi][si]=null;
+  buildTplClassGrid();buildTplGroupGrid();
+}
+
+function tplChipDS(e,name){
+  tplDragName=name;e.currentTarget.classList.add('dragging');e.dataTransfer.effectAllowed='copy';
+}
+
+function tplDzDO(e,cls){e.preventDefault();document.getElementById(`tpl-dz-${cls}`)?.classList.add('drag-over');}
+
+function tplDzDrop(e,cls){
+  e.preventDefault();document.getElementById(`tpl-dz-${cls}`)?.classList.remove('drag-over');
+  // Allow dragging FROM group slots back to class pool — not needed, just ignore
+  tplDragName=null;
+}
+
+function buildTplGroupGrid(){
+  const grid=document.getElementById('tpl-group-grid');
+  grid.innerHTML='';
+  for(let gi=0;gi<8;gi++){
+    const row=document.createElement('div');row.className='tpl-group-row';
+    row.innerHTML=`<div class="tpl-group-lbl">G${gi+1}</div>`;
+    for(let si=0;si<5;si++){
+      const name=tplGroups[gi][si];
+      const slot=document.createElement('div');
+      slot.className='tpl-slot-drop'+(name?' filled':'');
+
+      if(name){
+        // Find class for color
+        const cls=Object.entries(tplRoster).find(([c,ns])=>ns.includes(name))?.[0];
+        const col=cls?(CLS_COLOR[cls]||'#888'):'#888';
+        const textCol=cls==='Priest'?'#1a1a1a':'rgba(10,12,15,0.85)';
+        slot.style.background=col;slot.style.borderColor=col;
+        slot.innerHTML=`<span class="tpl-slot-text" style="color:${textCol}">${name}</span>`;
+        slot.title='Click to clear';
+        slot.onclick=()=>{tplGroups[gi][si]=null;buildTplGroupGrid();};
+      } else {
+        slot.innerHTML='<span style="color:var(--border2);font-size:8px">+</span>';
+        slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over');});
+        slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
+        slot.addEventListener('drop',e=>{
+          e.preventDefault();slot.classList.remove('drag-over');
+          if(tplDragName){tplGroups[gi][si]=tplDragName;tplDragName=null;buildTplGroupGrid();}
+        });
+      }
+      row.appendChild(slot);
+    }
+    grid.appendChild(row);
+  }
+}
+
+function clearTplGroups(){
+  tplGroups=Array.from({length:8},()=>[null,null,null,null,null]);
+  buildTplGroupGrid();
+}
+
+function resetTplToDefault(){
+  tplGroups=Array.from({length:8},()=>[null,null,null,null,null]);
+  customTplLayout=null;
+  buildTplGroupGrid();
+  showStatus('Reset to role-based auto-fill','ok');
+}
+
+function confirmTemplate(){
+  // Save current tplGroups as the custom layout
+  customTplLayout=tplGroups.map(row=>[...row]);
+  showPage('planner');
+  showStatus('✓ Template saved — click ⚡ Auto-Fill to apply','ok');
+}
+
+// ── Excel export ──────────────────────────────────────────────────────────────
+const CLS_FILL_HEX={
+  Warrior:'FFC69B6D',Paladin:'FFF48CBA',Hunter:'FFAAD372',Rogue:'FFFFF468',
+  Priest:'FFD0D0D0',Shaman:'FF0070DE',Mage:'FF3FC7EB',Warlock:'FF8788EE',
+  Druid:'FFFF7C0A',Tank:'FFC69B6D',Tentative:'FF666666'
+};
+function xlsStyle(fg,bg,bold,sz,halign){
+  return{font:{name:'Arial',bold:!!bold,color:{rgb:fg||'FFE0E0E0'},sz:sz||10},
+    fill:{patternType:'solid',fgColor:{rgb:bg||'FF111418'}},
+    alignment:{horizontal:halign||'center',vertical:'center'},
+    border:{top:{style:'thin',color:{rgb:'FF2a2f3a'}},bottom:{style:'thin',color:{rgb:'FF2a2f3a'}},
+      left:{style:'thin',color:{rgb:'FF2a2f3a'}},right:{style:'thin',color:{rgb:'FF2a2f3a'}}}};
+}
+
+function exportExcel(){
+  if(!players.length){showStatus('Import roster first','err');return;}
+  const wb=XLSX.utils.book_new();
+  BOSSES.forEach(b=>{
+    const g=groups[b.id];const ws={};const merges=[];
+    ws['A1']={v:b.label.toUpperCase()+' — GROUP SETUP',t:'s',s:xlsStyle('FFC8A84B','FF0a0c0f',true,13,'center')};
+    merges.push({s:{r:0,c:0},e:{r:0,c:8}});
+    ws['A2']={v:'',t:'s',s:xlsStyle('FFC8A84B','FF0F3460',true,10)};
+    for(let gi=1;gi<=8;gi++){
+      const col=String.fromCharCode(65+gi);
+      ws[col+'2']={v:'Group '+gi,t:'s',s:xlsStyle('FFC8A84B','FF0F3460',true,10)};
+    }
+    for(let si=0;si<5;si++){
+      const row=si+3;ws['A'+row]={v:'Slot '+(si+1),t:'s',s:xlsStyle('FF888ea0','FF181c22',false,9)};
+      for(let gi=1;gi<=8;gi++){
+        const col=String.fromCharCode(65+gi);const name=g[gi][si];
+        const dn=name?resolve(name):'';const p=name?players.find(x=>x.name===name):null;
+        const bg=p?(CLS_FILL_HEX[p.cls]||'FF333333'):'FF1a1a2e';
+        const fg=p?(p.cls==='Priest'?'FF1A1A1A':'FF0A0A0A'):'FF555555';
+        ws[col+row]={v:dn,t:'s',s:xlsStyle(fg,bg,true,10)};
+      }
+    }
+    const wa=buildWA(b.id);
+    ws['A8']={v:'WeakAura:',t:'s',s:xlsStyle('FFC8A84B','FF0F3460',true,9)};
+    ws['B8']={v:wa,t:'s',s:{font:{name:'Courier New',sz:8,color:{rgb:'FF00FF88'}},fill:{patternType:'solid',fgColor:{rgb:'FF0D1B2A'}},alignment:{horizontal:'left',vertical:'center'}}};
+    merges.push({s:{r:7,c:1},e:{r:7,c:8}});
+    ws['!ref']='A1:I8';ws['!merges']=merges;
+    ws['!cols']=[{wch:8},...Array(8).fill({wch:15})];
+    XLSX.utils.book_append_sheet(wb,ws,b.label.slice(0,31));
+  });
+  XLSX.writeFile(wb,'Naxx_Groups.xlsx');
+  showStatus('⬇ Downloaded','ok');
+}
+
+function handleUpload(input){
+  if(!input.files||!input.files[0])return;
+  const file=input.files[0];uploadedFn=file.name.replace('.xlsx','')+'_Updated.xlsx';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{uploadedWb=XLSX.read(e.target.result,{type:'array',cellStyles:true});showStatus('✓ Excel loaded','ok');}
+    catch(err){showStatus('Failed to read Excel','err');}
+  };
+  reader.readAsArrayBuffer(file);input.value='';
+}
+
+const SHEET_MAP={
+  default:['Roster','Default','Naxx Main','Groups - Default'],
+  gothik:['Gothik','Groups - Gothik'],
+  '4hm':['4HM','Four Horsemen','Groups - 4HM','LOATHEB4HMKT'],
+  saph:['Saph','Sapphiron','Groups - Sapphiron','SAPH'],
+  kt:['KT',"Kel'Thuzad",'Groups - KT'],
+  thad:['Thad','Thaddius','Groups - Thaddius'],
+};
+
+function injectExcel(){
+  if(!uploadedWb){showStatus('Upload Excel first','err');return;}
+  if(!players.length){showStatus('Import roster first','err');return;}
+  const wb=uploadedWb;let injected=0;
+  BOSSES.forEach(b=>{
+    const g=groups[b.id];
+    const candidates=SHEET_MAP[b.id]||[];
+    let sn=null;
+    for(const c of candidates){const found=wb.SheetNames.find(s=>s.toLowerCase()===c.toLowerCase());if(found){sn=found;break;}}
+    if(!sn)return;
+    const ws=wb.Sheets[sn];
+    const range=XLSX.utils.decode_range(ws['!ref']||'A1:Z100');
+    let headerRow=null;const groupCols={};
+    for(let r=range.s.r;r<=Math.min(range.e.r,20);r++){
+      for(let c=range.s.c;c<=range.e.c;c++){
+        const cell=ws[XLSX.utils.encode_cell({r,c})];
+        if(!cell)continue;
+        const v=String(cell.v||'').toLowerCase().replace(/\s/g,'');
+        if(v==='group1'||v==='g1'){headerRow=r;groupCols[1]=c;
+          for(let g2=2;g2<=8;g2++)
+            for(let c2=c+1;c2<=range.e.c;c2++){
+              const c2cell=ws[XLSX.utils.encode_cell({r,c:c2})];if(!c2cell)continue;
+              const v2=String(c2cell.v||'').toLowerCase().replace(/\s/g,'');
+              if(v2==='group'+g2||v2==='g'+g2){groupCols[g2]=c2;break;}
+            }
+          break;}
+      }if(headerRow!==null)break;
+    }
+    if(headerRow===null){headerRow=1;for(let gi=1;gi<=8;gi++)groupCols[gi]=gi-1;}
+    for(let gi=1;gi<=8;gi++){
+      const col=groupCols[gi];if(col===undefined)continue;
+      for(let si=0;si<5;si++){
+        const addr=XLSX.utils.encode_cell({r:headerRow+1+si,c:col});
+        const name=g[gi][si];const dn=name?resolve(name):'';
+        if(!ws[addr])ws[addr]={};ws[addr].v=dn;ws[addr].t='s';
+        const p=name?players.find(x=>x.name===name):null;
+        if(p){const bg=CLS_FILL_HEX[p.cls];if(bg){ws[addr].s=ws[addr].s||{};ws[addr].s.fill={patternType:'solid',fgColor:{rgb:'FF'+bg}};ws[addr].s.font={name:'Arial',bold:true,sz:10,color:{rgb:p.cls==='Priest'?'FF1A1A1A':'FF0A0A0A'}};ws[addr].s.alignment={horizontal:'center',vertical:'center'};}}
+      }
+    }
+    injected++;
+  });
+  if(!injected){showStatus('No matching sheets found','err');return;}
+  XLSX.writeFile(wb,uploadedFn);showStatus(`✓ Injected ${injected} sheets`,'ok');
+}
+</script>
+</body>
+</html>
