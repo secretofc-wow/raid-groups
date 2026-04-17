@@ -850,10 +850,10 @@ const ICON_DB = {
 
 // ─── RAID BUFFS DATA ─────────────────────────────────────────
 const RAID_BUFFS = {
-  'Battle Shout': { icon: 'IconsDB/Battle Shout.png', spellId: 6673, classes: ['Warrior'], desc: '+232 Attack Power' },
+  'Battle Shout': { icon: 'IconsDB/Battle Shout.png', spellId: 25289, classes: ['Warrior'], desc: '+232 Attack Power' },
   'Blood Pact': { icon: 'IconsDB/Blood Pact.png', spellId: 11767, classes: ['Warlock'], desc: '+38 Stamina' },
-  'Devotion Aura': { icon: 'IconsDB/Devotion Aura.png', spellId: 465, classes: ['Paladin'], desc: '+735 Armor' },
-  'Leader of the Pack': { icon: 'IconsDB/Leader of the Pact.png', spellId: 17007, classes: ['Druid'], desc: '+5% Critical Strike' },
+  'Devotion Aura': { icon: 'IconsDB/Devotion Aura.png', spellId: 10293, classes: ['Paladin'], desc: '+735 Armor' },
+  'Leader of the Pack': { icon: 'IconsDB/Leader of the Pact.png', spellId: 17007, classes: ['Druid'], specRequired: 'Feral', desc: '+5% Critical Strike' },
   'Trueshot Aura': { icon: 'IconsDB/Trueshot Aura.png', spellId: 20906, classes: ['Hunter'], desc: '+100 Attack Power' },
   'Furious Howl': { icon: 'IconsDB/Furious Howl.png', spellId: 24597, classes: ['Hunter'], petAbility: true, desc: '+45 Damage (next attack)' },
   'Hunter Aspect': { icon: 'IconsDB/Hunter Aspect.png', spellId: null, classes: ['Hunter'], noTooltip: true }
@@ -866,6 +866,7 @@ function getGroupBuffs(group) {
     Object.keys(RAID_BUFFS).forEach(buffName => {
       const buff = RAID_BUFFS[buffName];
       if (buff.classes.includes(p.className)) {
+        if (buff.specRequired && p.specName !== buff.specRequired) return;
         buffs[buffName] = (buffs[buffName] || 0) + 1;
       }
     });
@@ -1583,9 +1584,9 @@ function renderGroupsGrid() {
       .map(([buffName, count]) => {
         const buff = RAID_BUFFS[buffName];
         if (!buff) return '';
-        const link = buff.spellId 
-          ? `<a href="https://www.wowhead.com/classic/spell=${buff.spellId}" data-wh="1" style="display:inline-block;position:relative;width:20px;height:20px;margin-right:2px">`
-          : `<span style="display:inline-block;position:relative;width:20px;height:20px;margin-right:2px" title="${buffName}">`;
+    const link = buff.spellId 
+      ? `<a href="https://www.wowhead.com/classic/spell=${buff.spellId}?maxrank=1" style="display:inline-block;position:relative;width:20px;height:20px;margin-right:2px">`
+      : `<span style="display:inline-block;position:relative;width:20px;height:20px;margin-right:2px" title="${buffName}: ${buff.desc}">`;
         const closeLink = buff.spellId ? '</a>' : '</span>';
         return `${link}<img src="${buff.icon}" width="20" height="20" style="border-radius:2px" alt="${buffName}">${count > 1 ? `<span style="position:absolute;bottom:-2px;right:-2px;font-size:10px;font-weight:bold;color:#fff;background:#000;padding:0 2px;border-radius:2px">${count}</span>` : ''}${closeLink}`;
       }).join('');
@@ -3225,5 +3226,6 @@ function ingestCompToolJSON(data) {
   toast('Loaded ' + state.players.length + ' players');
 }
 </script>
+<script src="https://wow.zamimg.com/js/tooltips.js"></script>
 </body>
 </html>
